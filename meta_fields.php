@@ -542,67 +542,6 @@ function dco_authormeta_add_class_for_authors($output, $key, $type, $value ){
 }
 	
 
-/// This is the customized DCo_Customize_Image_Control(). It uses some of this meta field stuff to make us happy.
-
-
-add_action('customize_register', 'add_dco_customize_image_control_customize_theme_control'); 
-function add_dco_customize_image_control_customize_theme_control( $wp_customize ){
-class DCo_Customize_Image_Control extends WP_Customize_Control {
-	public $type = 'hidden';
-
-	public function enqueue() {
-		// $this->default = plugins_url( 'empty-image-drop.png' ,  __FILE__  ) ;
-		wp_enqueue_style( 'meta_field_styles' ,   plugins_url('meta_fields.css', __FILE__) , array(  'thickbox'  ), time() ); 
-	    wp_enqueue_script( 'meta_field_script' ,  plugins_url('meta_fields.js', __FILE__) , array( 'thickbox',  'media-upload',  'jquery')  , time() ); 
-
-	}
-
-	/**
-	 * Render the control's content.
-	 *
-	 * @since 3.4.0
-	 */
-	public function render_content() {
-		$src = $this->value();
-
-		if ( is_numeric( $src ) ) { $attachmenturl = wp_get_attachment_image_src(  $src  , array(64,64) ); $src = $attachmenturl[0]; }
-	     else { $src =  plugins_url( 'empty-image-drop.png' ,  __FILE__  ); }
-		        $defaultornot = ( is_numeric($src) ) ? 'not-default' : 'default' ;
-		        ?>
-		        <label class='form-field'>
-		        	<span class='customize-control-title'><?php echo esc_html( ucfirst( $this->label ) ) ?></span>
-		        	<img class='image-upload <?php echo $defaultornot; ?>' src='<?php echo $src; ?>' />
-		        	<input type='hidden' class='image-id' <?php $this->link(); ?>  value='<?php echo $this->value(); ?>' />
-		        </label>
-		
-		<?php
-	}
-
-
-}
-
-
-
-
-
-
-class Example_Customize_Textarea_Control extends WP_Customize_Control {
-    public $type = 'textarea';
- 
-    public function render_content() {
-        ?>
-        <label>
-        <span class="customize-control-title"><?php echo esc_html( $this->label ); ?></span>
-        <textarea rows="5" style="width:100%;" <?php $this->link(); ?>><?php echo esc_textarea( $this->value() ); ?></textarea>
-        </label>
-        <?php
-    }
-}
-
-
-
-
-}
 
 
 ?>
