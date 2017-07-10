@@ -3,29 +3,39 @@
 Plugin Name: Meta Fields
 Description: Allows the easy handling of meta fields for posts, taxomoies, and users.
 Author: Danny Cohen
-Version: September 10, 2015
+Version: July 10, 2017
 Author URI: http://dannycohen.design
 */
 
-date_default_timezone_set('America/Los_Angeles');
-
-
-
 /*
 Here's how it works:
-1. Create a new MetaGroup($name, $post_type);
+1. Create a new DCoMetaGroup($name, $post_type);
 2. The object array will be made from the format of "$slug_metafields". So you would create something like add_filter('$slug_metafields', 'function_name'); And then also add a function_name( $meta_array) { and add your objects here. } 
 3. Uhhhh THAT'S IT BOYO!
 
 ** Here is what a MetaObject looks like being added to an array called $meta_array :
-** $meta_array['meta_item_key']    = new MetaObject( 'meta_item_key' , 'type' , 'Title' , 'description', $defaults);
+** $meta_array['meta_item_key']    = new DCoMetaObject( 'meta_item_key' , 'type' , 'Title' , 'description', $defaults);
 
+
+
+So, here is some very example code:
+
+    add_action('init', 'dco_add_metafields_for_custom_post_type', 10);
+    function dco_add_metafields_for_custom_post_type(){
+       $metagroup = new DCoMetaGroup('Extra Fields', 'Custom Post Type');
+    }
+    
+    apply_filters('extra_fields_metafields', 'dco_define_metafields_for_extra_fields', 10, 1);
+    function dco_define_metafields_for_extra_fields( $fields ){
+        $fields['meta_item_key'] = new DCoMetaObject( 'meta_item_key' , 'type' , 'Title' , 'description', $defaults);
+        return $fields;
+    }
 
 */
 
 // The MetaGroups
 
-class MetaGroup{
+class DCoMetaGroup{
 	public $name, $objects;
 	
 	public function __construct( $name, $post_type){
@@ -47,7 +57,7 @@ class MetaGroup{
 		echo '<table class="form-table"><tbody>';
 		wp_nonce_field( $this->slug .'_nonce_action', $this->slug .'_nonce_field' );
 		do_action(  $this->slug."_before_meta_fields" , $this);
-		echo display_post_meta_fields($this->objects); 
+		echo dco_display_post_meta_fields($this->objects); 
 		do_action(  $this->slug."_after_meta_fields" , $this );
  		echo '</tbody></table>';
 	}
@@ -56,7 +66,7 @@ class MetaGroup{
 		if ( wp_is_post_revision( $post_id ) )  return; 
 		if ( !isset( $_POST[  $this->slug .'_nonce_field' ] ) ) return;
 		if ( !check_admin_referer( $this->slug .'_nonce_action', $this->slug .'_nonce_field' ) )  return;
-		save_meta_fields_post($this->objects, $post_id, $_POST);
+		dco_save_meta_fields_post($this->objects, $post_id, $_POST);
 		do_action(  $this->slug."_after_saved_meta" , $this, $post_id );
 	}
 	
@@ -72,7 +82,7 @@ class MetaGroup{
 
 // Meta Object
 
-class MetaObject{
+class DCoMetaObject{
 	public $key, $type, $title, $description;
 	public $defaults = '';
 	public $enabled = true;
@@ -156,9 +166,11 @@ class MetaObject{
 		        $output .= "<input type='hidden' class='' name='$this->key' id='$this->key' value='". sanitize_text_field( $this->value ) . "' $enabled />";
 		        break;
 		    }
-	$output = apply_filters( 'dco_metafield_form_input_' . $this->key, $output, $this );		    
-    return apply_filters( 'dco_meta_field_field_form_input', $output, $this->key, $this->type, $this->value );
-	return $output;
+		    
+	   $output = apply_filters( 'dco_metafield_form_input_' . $this->key, $output, $this );		    
+       return apply_filters( 'dco_meta_field_field_form_input', $output, $this->key, $this->type, $this->value );
+	   return $output;
+	   
     }
     
     
@@ -182,7 +194,7 @@ class MetaObject{
                         }
                         break;
                     case "telephone": 
-                        $this->value = format_phone(trim( $_POST[$key] )); // Just some trimming please.
+                        $this->value = dco_format_phone(trim( $_POST[$key] )); // Just some trimming please.
                         break;
                     case "number": 
                     	if ( !is_numeric( $this->value ) ) $this->value = false;
@@ -219,36 +231,32 @@ class MetaObject{
 
 
 /// Meta Box Actions
-if (!function_exists('display_post_meta_fields')) {
-	function display_post_meta_fields( $meta_array ){
-	global $post;
-
-	do_action('display_meta_fields_styles', $post, $meta_array);
-
-	$custom = get_post_custom( $post->ID );
-	$output = '<div style="position: absolute;" id="colorpicker"></div>';
-	    foreach ($meta_array as $meta_item){ // For each of the items in the custom keys array, let's display some fields!
-	        $key  = trim($meta_item->key); $title = trim($meta_item->title); // We're going to store all of this stuff in some variables just in case we might want to effect everything, such as I did with trimming the values.
-	        $type = trim($meta_item->type);
-	        $meta_item->value   = isset( $custom[$key][0] ) ? $custom[$key][0] : $meta_item->defaults;
-	        	if ($type == 'hidden' ) { 
-	        		$output .= $meta_item->field_form_input(); 
-	        	} else {
-	        		$output .='<tr class="form-field" id="' . $key . '-row">';
-	        		$output .='<th scope="row" valign="top"><label for="' . $key . '"> '. $title .'</label></th>'; // The label
-	        		$output .="<td>";
-	        		$output .= $meta_item->field_form_input();
-	        		$output .='<p class="description">'. apply_filters( 'dco_meta_field_description_output', $meta_item->description, $meta_item ) .'</p></td>'; // The description
-	        		$output .='</tr>';
-	        	}
-	    }
-	return $output;
+	function dco_display_post_meta_fields( $meta_array ){
+	   global $post;
+	   do_action('display_meta_fields_styles', $post, $meta_array);
+       
+	   $custom = get_post_custom( $post->ID );
+	   $output = '<div style="position: absolute;" id="colorpicker"></div>';
+	       foreach ($meta_array as $meta_item){ // For each of the items in the custom keys array, let's display some fields!
+	           $key  = trim($meta_item->key); $title = trim($meta_item->title); // We're going to store all of this stuff in some variables just in case we might want to effect everything, such as I did with trimming the values.
+	           $type = trim($meta_item->type);
+	           $meta_item->value   = isset( $custom[$key][0] ) ? $custom[$key][0] : $meta_item->defaults;
+	           	if ($type == 'hidden' ) { 
+	           		$output .= $meta_item->field_form_input(); 
+	           	} else {
+	           		$output .='<tr class="form-field" id="' . $key . '-row">';
+	           		$output .='<th scope="row" valign="top"><label for="' . $key . '"> '. $title .'</label></th>'; // The label
+	           		$output .="<td>";
+	           		$output .= $meta_item->field_form_input();
+	           		$output .='<p class="description">'. apply_filters( 'dco_meta_field_description_output', $meta_item->description, $meta_item ) .'</p></td>'; // The description
+	           		$output .='</tr>';
+	           	}
+	       }
+	   return $output;
 	}
-}
 
-if (!function_exists('enqueue_post_meta_fields_styles')) {
-	add_action('display_meta_fields_styles', 'enqueue_post_meta_fields_styles', 99, 2);
-	function enqueue_post_meta_fields_styles($object, $meta_array){
+	add_action('display_meta_fields_styles', 'dco_enqueue_post_meta_fields_styles', 99, 2);
+	function dco_enqueue_post_meta_fields_styles($object, $meta_array){
 	    //global $post;
 	    wp_enqueue_style( 'meta_field_styles' ,   plugins_url('meta_fields.css', __FILE__) , array(  'thickbox'  ), time() ); 
 	    wp_enqueue_media();
@@ -272,37 +280,29 @@ if (!function_exists('enqueue_post_meta_fields_styles')) {
 	            case 'color':
 	               wp_enqueue_style('wp-color-picker');
 	               wp_enqueue_script('wp-color-picker');
-	               wp_enqueue_style('farbtastic');   // These are probably done and over, correct?
-	               wp_enqueue_script('farbtastic');  // These are probably done and over, correct?
 	            break;
 	        }
 	    }
 	}
 
-	add_filter("attribute_escape", "replaceinsertintopost", 10, 2);
-	function replaceinsertintopost($safe_text, $text) {
+	add_filter("attribute_escape", "dco_meta_replaceinsertintopost", 10, 2);
+	function dco_meta_replaceinsertintopost($safe_text, $text) {
 		if ($text == 'Insert into Post') return str_replace( __('Insert into Post'), __('Use This Image'), $text);
 		return $safe_text;
 	}
 
-}
 
-
-
-if (!function_exists('save_meta_fields_post')){   
-    function save_meta_fields_post($meta_fields_array, $post_id, $post_from_server) { // This is to help us, using an array of keys and fields, to save meta data when a post is saved. All just to make things move faster.
+    function dco_save_meta_fields_post($meta_fields_array, $post_id, $post_from_server) { // This is to help us, using an array of keys and fields, to save meta data when a post is saved. All just to make things move faster.
 	    foreach ($meta_fields_array as $meta_item){ // Let's run through the $article_meta_fields array and update the appropriate meta keys. This is easy.
             $key = trim( $meta_item->key ); // Just storing the key for this specific meta item in the $key variable. And we'll trim it all just to protect ourselves
             if ( !empty($post_from_server[$key]) ) { $meta_item->value = $post_from_server[$key];  $meta_item->validate_save_data();      } else { $meta_item->value = null; }
             update_post_meta($post_id, $meta_item->key,  $meta_item->value );  // update the meta key with the value if it hasn't been set false by some verification
         }
     }
-}    
     
     
     
-if (!function_exists('format_phone')){       
-    function format_phone($phone)  { // Oh, thanks dawg http://snipplr.com/view.php?codeview&id=25
+    function dco_format_phone($phone)  { // Oh, thanks dawg http://snipplr.com/view.php?codeview&id=25
     	$number = trim(preg_replace('#[^0-9]#s', '', $phone));
     
         $length = strlen($number);
@@ -321,22 +321,19 @@ if (!function_exists('format_phone')){
     
         return $formatted;
     }
-}        
         
 // This one is simple: 
-//	$custom_tax_fields = new TaxMetaGroup('$taxonomy_slug');
+//	$custom_tax_fields = new DCoTaxMetaGroup('$taxonomy_slug');
 
 
-class TaxMetaGroup{
+class DCoTaxMetaGroup{
 
 	public $slug, $name, $objects;
 	
 	public function __construct( $taxonomy ){
 		
 		$this->slug = $taxonomy;
-		
-		$this->create_taxonomy_meta_table($taxonomy); // Create the taxonomy table, please
-			
+					
 		add_action('admin_init',  array( $this, 'tax_meta_group_admin_init' ) );
 	}
 	
@@ -403,32 +400,13 @@ class TaxMetaGroup{
 	            $meta_item->value = $_POST[$key];
 	            $meta_item->validate_save_data();  
 	            
-	            //$value = apply_filters( array($meta_item,'validate_meta_value'),  $type, trim( $_POST[$key] ) ) ;
-
-                $update = update_metadata( $this->slug, $term_id, $key, $meta_item->value );
+                //$update = update_metadata( $this->slug, $term_id, $key, $meta_item->value ); // Old Method that we replaced below
+                $update = update_term_meta( $term_id, $key, $meta_item->value);
             }
             
         }
     }
     
-	public function create_taxonomy_meta_table($taxonomy){
-	   //Get the $wpdb global
-	   $variable_name = $taxonomy . 'meta';
-	   global $wpdb;
-	   $wpdb->$variable_name = $wpdb->prefix. $variable_name;
-	   //Set a default result
-	   $result = false;
-	   //Install table, if it doesnt exist already
-	   $sql = "CREATE TABLE IF NOT EXISTS `".$wpdb->$variable_name."` (
-	      	  `meta_id` bigint(20) UNSIGNED NOT NULL auto_increment,
-	      	  `". $taxonomy ."_id` bigint(20) UNSIGNED NOT NULL,
-	      	  `meta_key` varchar(255),
-	      	  `meta_value` longtext,
-	      	  PRIMARY KEY (`meta_id`)
-	      	  )";
-	   $result = $wpdb->query($sql);
-	   global $wpdb;
-	}
 }
 
 
@@ -516,7 +494,7 @@ class DCoUserMetaGroup{
 }
 
 
-class AuthorMetaObject extends MetaObject{
+class DCoAuthorMetaObject extends MetaObject{
 	
 
 	function get_author_meta_value( $user ){
