@@ -341,13 +341,11 @@ class DCoTaxMetaGroup{
 		
 		$this->taxonomy = get_taxonomy( $this->slug );
 		if (empty($this->taxonomy->name)) return false;
-		//$this->slug = $this->taxonomy->name;
+
 		$this->objects = apply_filters( $this->slug.'_metafields', array() );
 				
 		add_action( $this->slug . '_edit_form_fields', array( $this, 'display_fields' ) , 10);
-		//add_action( $this->slug . '_edit_form'       , array( $this, 'save_fields' ) , 10) ;
 		add_action( $this->slug . '_add_form_fields' , array( $this, 'display_fields' ) , 10 );
-		//add_action( $this->slug . '_add_form'        , array( $this, 'save_fields' ), 10);
 		
 		add_action( 'created_' . $this->slug , array( $this, 'save_fields' ) , 10 , 2);
 		add_action( 'edited_' . $this->slug , array( $this, 'save_fields' ) , 10 , 2);
@@ -374,7 +372,7 @@ class DCoTaxMetaGroup{
                 
                 case 'edit':
                 	$key = trim( $meta_item->key ); // Just storing the key for this specific meta item in the $key variable. And we'll trim it all just to protect ourselves
-					$meta_item->value = get_metadata( $tag->taxonomy, $tag->term_id, $key, true);
+					$meta_item->value = get_metadata( "term", $tag->term_id, $key, true);
                 	$output .= '<tr class="form-field"><th scope="row" valign="top">';
                 	$output .= '<label for="'.$key.'">'.$meta_item->title.'</label>';
                 	$output .= '</th><td>';
@@ -400,7 +398,6 @@ class DCoTaxMetaGroup{
 	            $meta_item->value = $_POST[$key];
 	            $meta_item->validate_save_data();  
 	            
-                //$update = update_metadata( $this->slug, $term_id, $key, $meta_item->value ); // Old Method that we replaced below
                 $update = update_term_meta( $term_id, $key, $meta_item->value);
             }
             
